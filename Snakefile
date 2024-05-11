@@ -17,6 +17,10 @@ rule sketch:
         expand("sketches/{name}_pass.sig.zip", name=FILES),
         expand("output/{name}_pass.gather.csv", name=FILES),
 
+rule subtract:
+    input:
+        expand("sketches/{name}_pass.sub-hg38.sig.zip", name=FILES),
+
 rule gather:
     input:
         expand("sketches/{name}_pass.sig.zip", name=FILES),
@@ -78,6 +82,6 @@ rule gather_sample:
     threads: 64
     shell: """
         /usr/bin/time -v sourmash scripts fastgather {input.sub} \
-            -k 21 -t {threads} \
+            -k 21 -c {threads} -t 10000 \
             {input.db} -o {output.csv} > {output.out} 2> {output.err}
     """
