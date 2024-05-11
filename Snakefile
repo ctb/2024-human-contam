@@ -1,4 +1,5 @@
 DB = "gtdb-rs214-k21.zip"
+HG38 = "hg38-entire.sig.zip"
 
 ###
 
@@ -30,6 +31,16 @@ rule sketch_sample:
         sourmash sketch dna -p k=21,abund {input} -o {output} \
             --name {wildcards.name:q}
     """
+
+### worker rules
+
+rule hg38_extract_k21:
+    input:
+        HG38
+    output:
+        "hg38-entire.k21.sig.gz"
+    shell:
+        "sourmash sig cat {input} -o {output} -k 21"
 
 # subtract hg38, doing the necessary sig.gz/flatten/subtract/inflate/rename
 # stuff. ugh.
