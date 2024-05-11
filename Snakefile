@@ -11,6 +11,8 @@ rule all:
     input:
         expand("sketches/{name}_pass.sig.zip", name=FILES),
         expand("output/{name}_pass.gather.csv", name=FILES),
+        "output/all-merged.gather.csv",
+        "sketches/all-merged.with-hg38.sig.zip"
 
 rule sketch:
     input:
@@ -25,6 +27,7 @@ rule gather:
     input:
         expand("sketches/{name}_pass.sig.zip", name=FILES),
         expand("output/{name}_pass.gather.csv", name=FILES),
+        "output/all-merged.gather.csv",
 
 rule sketch_sample:
     input:
@@ -84,4 +87,54 @@ rule gather_sample:
         /usr/bin/time -v sourmash scripts fastgather {input.sub} \
             -k 21 -c {threads} -t 10000 \
             {input.db} -o {output.csv} > {output.out} 2> {output.err}
+    """
+
+rule merge_samples:
+    input:
+        expand("sketches/{name}_pass.sig.zip", name=FILES)
+    output:
+        "sketches/all-merged.with-hg38.sig.zip"
+    shell: """
+        sourmash sig merge -k 21 {input} -o {output} --name "all-WGS-merged"
+    """
+
+rule merge_samples_sub:
+    input:
+        expand("sketches/{name}_pass.sub-hg38.sig.zip", name=FILES),
+    output:
+        "sketches/all-merged.sub-hg38.sig.zip"
+    shell: """
+        sourmash sig merge -k 21 {input} -o {output} --name "all-WGS-merged"
+    """
+
+rule gather_merged_samples_sub:
+    input:
+        query="sketches/all-merged.sub-hg38.sig.zip",
+        db=DB,
+    output:
+        csv="output/all-merged.gather.csv",
+        out="output/all-merged.gather.out",
+        err="output/all-merged.gather.err",
+    threads: 64
+    shell: """
+        /usr/bin/time -v sourmash scripts fastgather {input.query} \
+            -k 21 -c {threads} -t 10000 \
+            {input.db} -o {output.csv} > {output.out} 2> {output.err}
+    """
+
+rule prepare_tax_sqldb:
+    input:
+        csv='gtdb-rs214.lineages.csv.gz'
+    output:
+        sqldb='gtdb-rs214.lineages.sqldb'
+    shell: """
+        sourmash tax prepare -t {input} -o {output}
+    """
+
+rule summarize_tax_on_merged:
+    input:
+        csv="output/all-merged.gather.csv",
+        sqldb='gtdb-rs214.lineages.sqldb',
+    shell: """
+        sourmash tax metagenome -t {input.sqldb} -g {input.csv} -F human
     """

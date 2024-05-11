@@ -6,3 +6,6 @@
 sketches
 output
 ont-duplex
+*.zip
+*.sig.gz
+*.csv

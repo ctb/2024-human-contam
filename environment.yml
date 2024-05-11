@@ -8,3 +8,4 @@ dependencies:
     - sourmash_plugin_branchwater
     - awscli
     - snakemake-minimal
+    - csvtk
