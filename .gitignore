@@ -3,3 +3,6 @@
 *.bam
 *.fastq.gz
 .snakemake
+sketches
+output
+ont-duplex

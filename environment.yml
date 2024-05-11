@@ -1,0 +1,10 @@
+name: smash
+channels:
+    - conda-forge
+    - bioconda
+    - defaults
+dependencies:
+    - sourmash>=4.8.8,<5
+    - sourmash_plugin_branchwater
+    - awscli
+    - snakemake-minimal

@@ -1,14 +1,10 @@
-# mamba create -n smash -y "sourmash_plugin_branchwater>=0.9.3"
-
-# grab databases from sourmash.readthedocs.io/en/latest/databases.html
+DB = "gtdb-rs214-k21.zip"
 
 ###
 
-DB = "/group/ctbrowngrp/sourmash-db/gtdb-rs214/gtdb-rs214-k21.zip"
-
-# load FASTQ files
+# load/discover FASTQ files
 FILES, = glob_wildcards("ont-duplex/{name}_pass.fastq.gz")
-print(len(FILES))
+print(f"found {len(FILES)} files.")
 
 rule all:
     input:
@@ -17,21 +13,22 @@ rule all:
 
 rule sketch:
     input:
+        expand("sketches/{name}_pass.sig.zip", name=FILES),
+        expand("output/{name}_pass.gather.csv", name=FILES),
+
+rule gather:
+    input:
+        expand("sketches/{name}_pass.sig.zip", name=FILES),
+        expand("output/{name}_pass.gather.csv", name=FILES),
+
+rule sketch_sample:
+    input:
         "ont-duplex/{name}_pass.fastq.gz",
     output:
         "sketches/{name}_pass.sig.zip",
     shell: """
         sourmash sketch dna -p k=21,abund {input} -o {output} \
             --name {wildcards.name:q}
-    """
-
-rule sig_gz:
-    input:
-        "{sketch}.sig.zip",
-    output:
-        "{sketch}.sig.k21.gz",
-    shell: """
-        sourmash sig cat {input} -o {output}
     """
 
 # subtract hg38, doing the necessary sig.gz/flatten/subtract/inflate/rename
@@ -45,14 +42,21 @@ rule subtract_hg38:
         sig_gz=temporary("sketches/{name}_pass.sig.gz"),
         flat_sub_gz=temporary("sketches/{name}_pass.sub-h38.flat.sig.gz"),
     shell: """
+        # convert .sig.zip to .sig.gz b/c subtract wants it, sigh.
         sourmash sig cat {input.orig} -o {output.sig_gz}
+
+        # subtract hg38 from sketch; remove abundances, because subtract wants
+        # it, sigh.
         sourmash sig subtract {output.sig_gz} {input.hg38} -k 21 --flatten \
            -o {output.flat_sub_gz}
+
+        # re-inflate subtracted sketch w/abundance from original sketch,
+        # and rename to something pleasing.
         sourmash sig inflate {output.sig_gz} {output.flat_sub_gz} -o - |
            sourmash sig rename - {wildcards.name:q} -o {output.sub}
     """
 
-rule gather:
+rule gather_sample:
     input:
         sub="sketches/{name}_pass.sub-hg38.sig.zip",
         db=DB,
