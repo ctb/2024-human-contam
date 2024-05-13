@@ -1,4 +1,4 @@
-KSIZE=51
+KSIZE=31
 
 DB = f"gtdb-rs214-k{KSIZE}.zip"
 HG38 = "hg38-entire.sig.zip"
@@ -44,7 +44,7 @@ rule sketch_sample:
 
 ### worker rules
 
-rule hg38_extract_k21:
+rule hg38_extract_k:
     input:
         HG38
     output:
