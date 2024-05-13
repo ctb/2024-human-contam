@@ -1,4 +1,6 @@
-DB = "gtdb-rs214-k21.zip"
+KSIZE=51
+
+DB = f"gtdb-rs214-k{KSIZE}.zip"
 HG38 = "hg38-entire.sig.zip"
 
 ###
@@ -22,6 +24,7 @@ rule sketch:
 rule subtract:
     input:
         expand("sketches/{name}_pass.sub-hg38.sig.zip", name=FILES),
+        "sketches/all-merged.sub-hg38.sig.zip"
 
 rule gather:
     input:
@@ -35,7 +38,7 @@ rule sketch_sample:
     output:
         "sketches/{name}_pass.sig.zip",
     shell: """
-        sourmash sketch dna -p k=21,abund {input} -o {output} \
+        sourmash sketch dna -p k=21,k=31,k=51,abund {input} -o {output} \
             --name {wildcards.name:q}
     """
 
@@ -45,33 +48,30 @@ rule hg38_extract_k21:
     input:
         HG38
     output:
-        "hg38-entire.k21.sig.gz"
+        f"hg38-entire.k{KSIZE}.sig.gz"
     shell:
-        "sourmash sig cat {input} -o {output} -k 21"
+        "sourmash sig cat {input} -o {output} -k {KSIZE}"
 
 # subtract hg38, doing the necessary sig.gz/flatten/subtract/inflate/rename
 # stuff. ugh.
 rule subtract_hg38:
     input:
         orig="sketches/{name}_pass.sig.zip",
-        hg38="hg38-entire.k21.sig.gz",
+        hg38=f"hg38-entire.k{KSIZE}.sig.gz",
     output:
         sub="sketches/{name}_pass.sub-hg38.sig.zip",
         sig_gz=temporary("sketches/{name}_pass.sig.gz"),
-        flat_sub_gz=temporary("sketches/{name}_pass.sub-h38.flat.sig.gz"),
+        sub_gz=temporary("sketches/{name}_pass.sub-h38.sig.gz"),
     shell: """
         # convert .sig.zip to .sig.gz b/c subtract wants it, sigh.
         sourmash sig cat {input.orig} -o {output.sig_gz}
 
-        # subtract hg38 from sketch; remove abundances, because subtract wants
-        # it, sigh.
-        sourmash sig subtract {output.sig_gz} {input.hg38} -k 21 --flatten \
-           -o {output.flat_sub_gz}
+        # subtract hg38 from sketch, retaining abundances.
+        sourmash sig subtract {output.sig_gz} {input.hg38} -k {KSIZE} --flatten \
+           --abundances-from {output.sig_gz} -o {output.sub_gz} 
 
-        # re-inflate subtracted sketch w/abundance from original sketch,
-        # and rename to something pleasing.
-        sourmash sig inflate {output.sig_gz} {output.flat_sub_gz} -o - |
-           sourmash sig rename - {wildcards.name:q} -o {output.sub}
+        # rename to something pleasing.
+        sourmash sig rename {output.sub_gz} {wildcards.name:q} -o {output.sub}
     """
 
 rule gather_sample:
@@ -85,7 +85,7 @@ rule gather_sample:
     threads: 64
     shell: """
         /usr/bin/time -v sourmash scripts fastgather {input.sub} \
-            -k 21 -c {threads} -t 10000 \
+            -k {KSIZE} -c {threads} -t 10000 -s 10000 \
             {input.db} -o {output.csv} > {output.out} 2> {output.err}
     """
 
@@ -95,7 +95,7 @@ rule merge_samples:
     output:
         "sketches/all-merged.with-hg38.sig.zip"
     shell: """
-        sourmash sig merge -k 21 {input} -o {output} --name "all-WGS-merged"
+        sourmash sig merge -k {KSIZE} {input} -o {output} --name "all-WGS-merged"
     """
 
 rule merge_samples_sub:
@@ -104,7 +104,7 @@ rule merge_samples_sub:
     output:
         "sketches/all-merged.sub-hg38.sig.zip"
     shell: """
-        sourmash sig merge -k 21 {input} -o {output} --name "all-WGS-merged"
+        sourmash sig merge -k {KSIZE} {input} -o {output} --name "all-WGS-merged"
     """
 
 rule gather_merged_samples_sub:
@@ -115,10 +115,10 @@ rule gather_merged_samples_sub:
         csv="output/all-merged.gather.csv",
         out="output/all-merged.gather.out",
         err="output/all-merged.gather.err",
-    threads: 64
+    threads: 128
     shell: """
         /usr/bin/time -v sourmash scripts fastgather {input.query} \
-            -k 21 -c {threads} -t 10000 \
+            -k {KSIZE} -c {threads} -t 10000 -s 10000 \
             {input.db} -o {output.csv} > {output.out} 2> {output.err}
     """
 
