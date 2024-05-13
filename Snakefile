@@ -12,14 +12,14 @@ print(f"found {len(FILES)} files.")
 rule all:
     input:
         expand("sketches/{name}_pass.sig.zip", name=FILES),
-        expand("output/{name}_pass.gather.csv", name=FILES),
-        "output/all-merged.gather.csv",
+        expand("output.k{k}/{name}_pass.gather.csv", name=FILES, k=[KSIZE]),
+        f"output.k{KSIZE}/all-merged.gather.csv",
         "sketches/all-merged.with-hg38.sig.zip"
 
 rule sketch:
     input:
         expand("sketches/{name}_pass.sig.zip", name=FILES),
-        expand("output/{name}_pass.gather.csv", name=FILES),
+        expand("output.k{k}/{name}_pass.gather.csv", name=FILES, k=[KSIZE]),
 
 rule subtract:
     input:
@@ -29,8 +29,8 @@ rule subtract:
 rule gather:
     input:
         expand("sketches/{name}_pass.sig.zip", name=FILES),
-        expand("output/{name}_pass.gather.csv", name=FILES),
-        "output/all-merged.gather.csv",
+        expand("output.k{k}/{name}_pass.gather.csv", name=FILES, k=[KSIZE]),
+        f"output.k{KSIZE}/all-merged.gather.csv",
 
 rule sketch_sample:
     input:
@@ -79,9 +79,9 @@ rule gather_sample:
         sub="sketches/{name}_pass.sub-hg38.sig.zip",
         db=DB,
     output:
-        csv="output/{name}_pass.gather.csv",
-        out="output/{name}_pass.gather.out",
-        err="output/{name}_pass.gather.err",
+        csv=f"output.k{KSIZE}/{{name}}_pass.gather.csv",
+        out=f"output.k{KSIZE}/{{name}}_pass.gather.out",
+        err=f"output.k{KSIZE}/{{name}}_pass.gather.err",
     threads: 64
     shell: """
         /usr/bin/time -v sourmash scripts fastgather {input.sub} \
@@ -112,9 +112,9 @@ rule gather_merged_samples_sub:
         query="sketches/all-merged.sub-hg38.sig.zip",
         db=DB,
     output:
-        csv="output/all-merged.gather.csv",
-        out="output/all-merged.gather.out",
-        err="output/all-merged.gather.err",
+        csv=f"output.k{KSIZE}/all-merged.gather.csv",
+        out=f"output.k{KSIZE}/all-merged.gather.out",
+        err=f"output.k{KSIZE}/all-merged.gather.err",
     threads: 128
     shell: """
         /usr/bin/time -v sourmash scripts fastgather {input.query} \
@@ -133,7 +133,7 @@ rule prepare_tax_sqldb:
 
 rule summarize_tax_on_merged:
     input:
-        csv="output/all-merged.gather.csv",
+        csv=f"output.k{KSIZE}/all-merged.gather.csv",
         sqldb='gtdb-rs214.lineages.sqldb',
     shell: """
         sourmash tax metagenome -t {input.sqldb} -g {input.csv} -F human
